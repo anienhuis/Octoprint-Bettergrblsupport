@@ -33,7 +33,12 @@ $(function() {
         self.is_printing = ko.observable(false);
         self.is_operational = ko.observable(false);
         self.isLoading = ko.observable(undefined);
-        self.probeEnabled = ko.observable(false)
+        self.probeEnabled = ko.observable(false);
+
+        self.probeDepth = ko.observable("");
+        self.probeFeedrate = ko.observable("");
+        self.touchPlateThickness = ko.observable("");
+        self.retractionDistance = ko.observable("");
 
         self.mode = ko.observable("N/A");
         self.state = ko.observable("N/A");
