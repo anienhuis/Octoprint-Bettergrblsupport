@@ -725,10 +725,6 @@ class BetterGrblSupportPlugin(octoprint.plugin.SettingsPlugin,
             },
             {
                     "type": "generic",
-                    "template": "bgs_probe.jinja2",
-            },
-            {
-                    "type": "generic",
                     "template": "bettergrblsupport_control.jinja2",
             }
         ]
