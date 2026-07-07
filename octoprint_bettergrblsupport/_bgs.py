@@ -1023,6 +1023,62 @@ def do_simple_zprobe(_plugin, sessionId):
                                                                      sessionId=zProbe._sessionId,
                                                                          gcode=gcode))
 
+
+def do_touch_plate_probe(_plugin, depth, feedrate, thickness, retraction):
+    _plugin._logger.debug("_bgs: do_touch_plate_probe depth=[{}] feedrate=[{}] thickness=[{}] retraction=[{}]".format(depth, feedrate, thickness, retraction))
+
+    global zProbe
+
+    if not zProbe == None:
+        zProbe.teardown()
+        zProbe = None
+
+    sessionId = int(time.time() * 1000)
+
+    def hook(plugin, result, position):
+        touch_plate_zprobe_hook(plugin, result, position, feedrate, thickness, retraction, sessionId)
+
+    zProbe = ZProbe(_plugin, hook, sessionId)
+
+    depth = abs(depth)
+    zTravel = depth * -1 * _plugin.invertZ
+
+    gcode = "G91 G21 G38.2 Z{} F{}".format(zTravel, feedrate)
+    zProbe._locations = [{"gcode": gcode,  "action": "touch_plate_zprobe", "location": "Current"}]
+
+    _plugin._plugin_manager.send_plugin_message(_plugin._identifier, dict(type="touch_plate_zprobe",
+                                                                     sessionId=zProbe._sessionId,
+                                                                         gcode=gcode))
+
+
+def touch_plate_zprobe_hook(_plugin, result, position, feedrate, thickness, retraction, sessionId):
+    global zProbe
+    _plugin._logger.debug("_bgs: touch_plate_zprobe_hook result=[{}] position=[{}] thickness=[{}] retraction=[{}] sessionId=[{}]".format(result, position, thickness, retraction, sessionId))
+
+    if result == 1:
+        threading.Thread(target=defer_touch_plate_probe, args=(_plugin, position, feedrate, thickness, retraction, sessionId)).start()
+        _plugin._plugin_manager.send_plugin_message(_plugin._identifier, dict(type="probe_result", status="success"))
+    else:
+        _plugin._plugin_manager.send_plugin_message(_plugin._identifier, dict(type="probe_result", status="failure"))
+        if not zProbe == None:
+            zProbe.teardown()
+            zProbe = None
+
+
+def defer_touch_plate_probe(_plugin, position, feedrate, thickness, retraction, sessionId):
+    global zProbe
+
+    _plugin.grblCmdQueue.append("%%% eat me %%%")
+    _plugin._printer.commands("?")
+    wait_for_empty_cmd_queue(_plugin)
+
+    _plugin._printer.commands(["G0 Z{} F{}".format(retraction, feedrate), "G10 L20 P0 Z{}".format(thickness), "G90"])
+
+    if not zProbe == None:
+        zProbe.teardown()
+        zProbe = None
+
+
 def simple_zprobe_hook(_plugin, result, position):
     global zProbe
     _plugin._logger.debug("_bgs: simple_zprobe_hook result=[{}] position=[{}] sessionId=[{}]".format(result, position, zProbe._sessionId))

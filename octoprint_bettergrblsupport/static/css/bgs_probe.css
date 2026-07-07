@@ -1,0 +1,15 @@
+/* Minimal styling for probe control panel */
+#probe_panel {
+    font-size: 13px;
+}
+#probe_panel label {
+    display: block;
+    margin-bottom: 3px;
+    font-weight: bold;
+}
+#probe_panel input.input-mini {
+    width: 70px;
+}
+#probe_panel button.btn {
+    margin-top: 8px;
+}

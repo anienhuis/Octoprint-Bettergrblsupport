@@ -11,3 +11,4 @@ dist
 .octoprint
 .env
 TCP4:blackbox-x32:23
+CLAUDE.md

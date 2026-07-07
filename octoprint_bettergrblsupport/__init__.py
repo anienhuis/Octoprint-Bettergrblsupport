@@ -247,6 +247,10 @@ class BetterGrblSupportPlugin(octoprint.plugin.SettingsPlugin,
             grblSettingsText = None,
             grblSettingsBackup = "",
             zProbeOffset = float(15.00),
+            probe_depth = float(10.00),
+            probe_feedrate = float(20.00),
+            touch_plate_thickness = float(1.50),
+            retraction_distance = float(2.00),
             xProbeOffset = float(3),
             yProbeOffset = float(3),
             zProbeTravel = float(0.00),
@@ -692,8 +696,8 @@ class BetterGrblSupportPlugin(octoprint.plugin.SettingsPlugin,
         # Define your plugin's asset files to automatically include in the
         # core UI here.
         return dict(js=['js/bettergrblsupport_control.js', 'js/bettergrblsupport_settings.js', 'js/bgs_framing.js', 
-                        'js/bettergrblsupport_wizard.js', 'js/bgs_terminal.js'],
-                    css=['css/bettergrblsupport_control.css', 'css/bettergrblsupport_settings.css', 'css/bgs_framing.css'],
+                        'js/bettergrblsupport_wizard.js', 'js/bgs_terminal.js', 'js/bgs_probe.js'],
+                    css=['css/bettergrblsupport_control.css', 'css/bettergrblsupport_settings.css', 'css/bgs_framing.css', 'css/bgs_probe.css'],
                     less=['less/bettergrblsupport.less', "less/bgs_framing.less"])
 
     # #~~ TemplatePlugin mixin
@@ -1360,6 +1364,7 @@ class BetterGrblSupportPlugin(octoprint.plugin.SettingsPlugin,
             homing=[],
             toggleWeak=[],
             cancelProbe=[],
+            probe=[],
             getNotifications=[],
             clearNotifications=[],
             backupGrblSettings=[],
@@ -1383,6 +1388,18 @@ class BetterGrblSupportPlugin(octoprint.plugin.SettingsPlugin,
         if command == "cancelProbe":
             _bgs.grbl_alarm_or_error_occurred(self)
             return
+
+        if command == "probe":
+            if not self._printer.is_ready() or self.grblState not in ("Idle", "Jog", "Check"):
+                return flask.abort(403, "Printer is not ready for probing")
+
+            depth = float(data.get("depth", 10))
+            feedrate = float(data.get("feedrate", 20))
+            thickness = float(data.get("thickness", 1.5))
+            retraction = float(data.get("retraction", 2))
+
+            _bgs.do_touch_plate_probe(self, depth, feedrate, thickness, retraction)
+            return flask.jsonify({"res": "Probe started"})
 
         if command == "sleep":
             self._printer.commands("$SLP")

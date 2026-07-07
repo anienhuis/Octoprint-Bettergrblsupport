@@ -1,0 +1,157 @@
+$(function () {
+    function BgsProbeViewModel(parameters) {
+        var self = this;
+
+        self.loginState = parameters[0];
+        self.access = parameters[1];
+        self.settings = parameters[2];
+
+        self.probeDepth = ko.observable("10");
+        self.probeFeedrate = ko.observable("20");
+        self.touchPlateThickness = ko.observable("1.5");
+        self.retractionDistance = ko.observable("2");
+
+        self.is_printing = ko.observable(false);
+        self.is_operational = ko.observable(false);
+        self.state = ko.observable("unknown");
+        self.probeStatus = ko.observable("");
+
+        self.handleFocus = function (event) {
+            window.setTimeout(function () {
+                event.target.select();
+            }, 0);
+        };
+
+        self._getSetting = function (settingName, fallbackValue) {
+            var pluginSettings = self.settings.settings.plugins.bettergrblsupport;
+            if (pluginSettings && pluginSettings[settingName] && typeof pluginSettings[settingName] === "function") {
+                return pluginSettings[settingName]();
+            }
+            return fallbackValue;
+        };
+
+        self._setSetting = function (settingName, value) {
+            var pluginSettings = self.settings.settings.plugins.bettergrblsupport;
+            if (pluginSettings && pluginSettings[settingName] && typeof pluginSettings[settingName] === "function") {
+                pluginSettings[settingName](value);
+                self.settings.saveData();
+            }
+        };
+
+        self.onBeforeBinding = function () {
+            self.probeDepth(self._getSetting("probe_depth", "10"));
+            self.probeFeedrate(self._getSetting("probe_feedrate", "20"));
+            self.touchPlateThickness(self._getSetting("touch_plate_thickness", "1.5"));
+            self.retractionDistance(self._getSetting("retraction_distance", "2"));
+
+            self.is_printing(self._getSetting("is_printing", false));
+            self.is_operational(self._getSetting("is_operational", false));
+
+            self.probeDepth.subscribe(function (newValue) {
+                self._setSetting("probe_depth", newValue);
+            });
+
+            self.probeFeedrate.subscribe(function (newValue) {
+                self._setSetting("probe_feedrate", newValue);
+            });
+
+            self.touchPlateThickness.subscribe(function (newValue) {
+                self._setSetting("touch_plate_thickness", newValue);
+            });
+
+            self.retractionDistance.subscribe(function (newValue) {
+                self._setSetting("retraction_distance", newValue);
+            });
+        };
+
+        self.fromCurrentData = function (data) {
+            self._processStateData(data.state);
+        };
+
+        self.fromHistoryData = function (data) {
+            self._processStateData(data.state);
+        };
+
+        self._processStateData = function (data) {
+            self.is_printing(data.flags.printing);
+            self.is_operational(data.flags.operational);
+        };
+
+        self.doProbe = function () {
+            self.probeStatus("");
+
+            $.ajax({
+                url: API_BASEURL + "plugin/bettergrblsupport",
+                type: "POST",
+                dataType: "json",
+                data: JSON.stringify({
+                    command: "probe",
+                    depth: self.probeDepth(),
+                    feedrate: self.probeFeedrate(),
+                    thickness: self.touchPlateThickness(),
+                    retraction: self.retractionDistance()
+                }),
+                contentType: "application/json; charset=UTF-8",
+                success: function (data) {
+                    if (data && data.res) {
+                        self.probeStatus(data.res);
+                    }
+                },
+                error: function (data, status) {
+                    var error = JSON.parse(data.responseText).error;
+                    if (error == undefined) error = data.responseText;
+                    self.probeStatus(error);
+
+                    new PNotify({
+                        title: "Probe failed!",
+                        text: error,
+                        hide: true,
+                        buttons: {
+                            sticker: false,
+                            closer: true
+                        },
+                        type: "error"
+                    });
+                }
+            });
+        };
+
+        self.onDataUpdaterPluginMessage = function (plugin, data) {
+            if (plugin == "bettergrblsupport" && data.type == "grbl_state") {
+                if (data.state != undefined) {
+                    self.state(data.state);
+                }
+            }
+
+            if (plugin == "bettergrblsupport" && data.type == "touch_plate_zprobe") {
+                if (data.gcode != undefined) {
+                    OctoPrint.control.sendGcode(data.gcode);
+                }
+            }
+
+            if (plugin == "bettergrblsupport" && data.type == "probe_result") {
+                if (data.status == "success") {
+                    self.probeStatus("Probe complete -- Z zeroed");
+                } else if (data.status == "failure") {
+                    self.probeStatus("Probe failed -- plate not triggered");
+                    new PNotify({
+                        title: "Probe failed",
+                        text: "Probe failed -- plate not triggered",
+                        hide: true,
+                        buttons: {
+                            sticker: false,
+                            closer: true
+                        },
+                        type: "error"
+                    });
+                }
+            }
+        };
+    }
+
+    OCTOPRINT_VIEWMODELS.push({
+        construct: BgsProbeViewModel,
+        dependencies: ["loginStateViewModel", "accessViewModel", "settingsViewModel"],
+        elements: ["#bettergrblsupport_control_panel"]
+    });
+});
