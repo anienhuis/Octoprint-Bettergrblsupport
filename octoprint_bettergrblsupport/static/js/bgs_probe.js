@@ -5,15 +5,22 @@ $(function () {
         self.loginState = parameters[0];
         self.access = parameters[1];
         self.settings = parameters[2];
+        self.mainViewModel = parameters[3];
 
         self.probeDepth = ko.observable("10");
         self.probeFeedrate = ko.observable("20");
-        self.touchPlateThickness = ko.observable("1.5");
+        self.touchPlateThickness = ko.observable("12");
         self.retractionDistance = ko.observable("2");
 
-        self.is_printing = ko.observable(false);
-        self.is_operational = ko.observable(false);
-        self.state = ko.observable("unknown");
+        self.is_printing = ko.computed(function () {
+            return self.mainViewModel.is_printing();
+        });
+        self.is_operational = ko.computed(function () {
+            return self.mainViewModel.is_operational();
+        });
+        self.state = ko.computed(function () {
+            return self.mainViewModel.state();
+        });
         self.probeStatus = ko.observable("");
 
         self.handleFocus = function (event) {
@@ -23,9 +30,10 @@ $(function () {
         };
 
         self._getSetting = function (settingName, fallbackValue) {
-            var pluginSettings = self.settings.settings.plugins.bettergrblsupport;
+            var pluginSettings = self.settings && self.settings.settings && self.settings.settings.plugins && self.settings.settings.plugins.bettergrblsupport;
             if (pluginSettings && pluginSettings[settingName] && typeof pluginSettings[settingName] === "function") {
-                return pluginSettings[settingName]();
+                var value = pluginSettings[settingName]();
+                return value !== undefined && value !== null ? value : fallbackValue;
             }
             return fallbackValue;
         };
@@ -41,11 +49,8 @@ $(function () {
         self.onBeforeBinding = function () {
             self.probeDepth(self._getSetting("probe_depth", "10"));
             self.probeFeedrate(self._getSetting("probe_feedrate", "20"));
-            self.touchPlateThickness(self._getSetting("touch_plate_thickness", "1.5"));
+            self.touchPlateThickness(self._getSetting("touch_plate_thickness", "12"));
             self.retractionDistance(self._getSetting("retraction_distance", "2"));
-
-            self.is_printing(self._getSetting("is_printing", false));
-            self.is_operational(self._getSetting("is_operational", false));
 
             self.probeDepth.subscribe(function (newValue) {
                 self._setSetting("probe_depth", newValue);
@@ -62,19 +67,6 @@ $(function () {
             self.retractionDistance.subscribe(function (newValue) {
                 self._setSetting("retraction_distance", newValue);
             });
-        };
-
-        self.fromCurrentData = function (data) {
-            self._processStateData(data.state);
-        };
-
-        self.fromHistoryData = function (data) {
-            self._processStateData(data.state);
-        };
-
-        self._processStateData = function (data) {
-            self.is_printing(data.flags.printing);
-            self.is_operational(data.flags.operational);
         };
 
         self.doProbe = function () {
@@ -118,9 +110,7 @@ $(function () {
 
         self.onDataUpdaterPluginMessage = function (plugin, data) {
             if (plugin == "bettergrblsupport" && data.type == "grbl_state") {
-                if (data.state != undefined) {
-                    self.state(data.state);
-                }
+                // state is sourced from the main Better Grbl Support viewmodel
             }
 
             if (plugin == "bettergrblsupport" && data.type == "touch_plate_zprobe") {
@@ -151,7 +141,7 @@ $(function () {
 
     OCTOPRINT_VIEWMODELS.push({
         construct: BgsProbeViewModel,
-        dependencies: ["loginStateViewModel", "accessViewModel", "settingsViewModel"],
-        elements: ["#bettergrblsupport_control_panel"]
+        dependencies: ["loginStateViewModel", "accessViewModel", "settingsViewModel", "betterGrblSupportViewModel"],
+        elements: ["#probe_panel"]
     });
 });
