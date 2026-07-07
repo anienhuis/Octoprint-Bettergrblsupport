@@ -5,22 +5,15 @@ $(function () {
         self.loginState = parameters[0];
         self.access = parameters[1];
         self.settings = parameters[2];
-        self.mainViewModel = parameters[3];
 
         self.probeDepth = ko.observable("10");
         self.probeFeedrate = ko.observable("20");
         self.touchPlateThickness = ko.observable("12");
         self.retractionDistance = ko.observable("2");
 
-        self.is_printing = ko.computed(function () {
-            return self.mainViewModel.is_printing();
-        });
-        self.is_operational = ko.computed(function () {
-            return self.mainViewModel.is_operational();
-        });
-        self.state = ko.computed(function () {
-            return self.mainViewModel.state();
-        });
+        self.is_printing = ko.observable(false);
+        self.is_operational = ko.observable(false);
+        self.state = ko.observable("unknown");
         self.probeStatus = ko.observable("");
 
         self.handleFocus = function (event) {
@@ -69,6 +62,19 @@ $(function () {
             });
         };
 
+        self.fromCurrentData = function (data) {
+            self._processStateData(data.state);
+        };
+
+        self.fromHistoryData = function (data) {
+            self._processStateData(data.state);
+        };
+
+        self._processStateData = function (data) {
+            self.is_printing(data.flags.printing);
+            self.is_operational(data.flags.operational);
+        };
+
         self.doProbe = function () {
             self.probeStatus("");
 
@@ -110,7 +116,9 @@ $(function () {
 
         self.onDataUpdaterPluginMessage = function (plugin, data) {
             if (plugin == "bettergrblsupport" && data.type == "grbl_state") {
-                // state is sourced from the main Better Grbl Support viewmodel
+                if (data.state != undefined) {
+                    self.state(data.state);
+                }
             }
 
             if (plugin == "bettergrblsupport" && data.type == "touch_plate_zprobe") {
@@ -141,7 +149,7 @@ $(function () {
 
     OCTOPRINT_VIEWMODELS.push({
         construct: BgsProbeViewModel,
-        dependencies: ["loginStateViewModel", "accessViewModel", "settingsViewModel", "betterGrblSupportViewModel"],
+        dependencies: ["loginStateViewModel", "accessViewModel", "settingsViewModel"],
         elements: ["#probe_panel"]
     });
 });
