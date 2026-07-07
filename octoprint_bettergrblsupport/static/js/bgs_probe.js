@@ -147,9 +147,11 @@ $(function () {
         };
     }
 
-    OCTOPRINT_VIEWMODELS.push({
-        construct: BgsProbeViewModel,
-        dependencies: ["loginStateViewModel", "accessViewModel", "settingsViewModel"],
-        elements: ["#probe_panel"]
-    });
+    // Probe panel is now handled by the main viewmodel; BgsProbeViewModel is no
+    // longer registered. Kept for reference in case it's needed again later.
+    // OCTOPRINT_VIEWMODELS.push({
+    //     construct: BgsProbeViewModel,
+    //     dependencies: ["loginStateViewModel", "accessViewModel", "settingsViewModel"],
+    //     elements: ["#probe_panel"]
+    // });
 });

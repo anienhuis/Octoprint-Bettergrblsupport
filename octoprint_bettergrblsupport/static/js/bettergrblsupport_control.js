@@ -35,12 +35,34 @@ $(function() {
         self.isLoading = ko.observable(undefined);
         self.probeEnabled = ko.observable(false);
 
-        self.probeDepth = ko.observable("");
-        self.probeFeedrate = ko.observable("");
-        self.touchPlateThickness = ko.observable("");
-        self.retractionDistance = ko.observable("");
+        self.probeDepth = ko.observable("10");
+        self.probeFeedrate = ko.observable("20");
+        self.touchPlateThickness = ko.observable("12.1");
+        self.retractionDistance = ko.observable("2");
         self.probeStatus = ko.observable("");
-        self.doProbe = function() {};
+        self.doProbe = function() {
+            self.probeStatus("");
+            $.ajax({
+                url: API_BASEURL + "plugin/bettergrblsupport",
+                type: "POST",
+                dataType: "json",
+                data: JSON.stringify({
+                    command: "probe",
+                    depth: self.probeDepth(),
+                    feedrate: self.probeFeedrate(),
+                    thickness: self.touchPlateThickness(),
+                    retraction: self.retractionDistance()
+                }),
+                contentType: "application/json; charset=UTF-8",
+                success: function(data) {
+                    if (data && data.res) self.probeStatus(data.res);
+                },
+                error: function(data) {
+                    var error = JSON.parse(data.responseText).error || data.responseText;
+                    self.probeStatus(error);
+                }
+            });
+        };
 
         self.mode = ko.observable("N/A");
         self.state = ko.observable("N/A");
@@ -653,7 +675,21 @@ $(function() {
             }
 
             if (plugin == "bettergrblsupport" && data.type == "notification") {
-                self.notifications.onDataUpdaterPluginMessage("action_command_notification", {message: data.message})                    
+                self.notifications.onDataUpdaterPluginMessage("action_command_notification", {message: data.message})
+            }
+
+            if (plugin == "bettergrblsupport" && data.type == "touch_plate_zprobe") {
+                if (data.gcode != undefined) {
+                    OctoPrint.control.sendGcode(data.gcode);
+                }
+            }
+
+            if (plugin == "bettergrblsupport" && data.type == "probe_result") {
+                if (data.status == "success") {
+                    self.probeStatus("Probe complete -- Z zeroed");
+                } else if (data.status == "failure") {
+                    self.probeStatus("Probe failed -- plate not triggered");
+                }
             }
         }
 
