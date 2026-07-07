@@ -39,6 +39,7 @@ $(function() {
         self.probeFeedrate = ko.observable("");
         self.touchPlateThickness = ko.observable("");
         self.retractionDistance = ko.observable("");
+        self.doProbe = function() {};
 
         self.mode = ko.observable("N/A");
         self.state = ko.observable("N/A");
